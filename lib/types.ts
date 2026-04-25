@@ -32,6 +32,41 @@ export interface GitHubRepo {
   open_issues_count: number;
 }
 
+export interface GitHubOrg {
+  login: string;
+  avatar_url: string;
+  description: string | null;
+}
+
+/* ===== 贡献数据 ===== */
+
+export interface ContributionDay {
+  date: string;
+  count: number;
+  level: number; // 0–4
+}
+
+export interface ContributionWeek {
+  days: ContributionDay[];
+}
+
+export interface ContributionData {
+  totalContributions: number;
+  weeks: ContributionWeek[];
+}
+
+/* ===== 仓库深度分析 ===== */
+
+export interface RepoDeepAnalysis {
+  summary: string;
+  architecture: string;
+  codeQuality: string;
+  strengths: string[];
+  suggestions: string[];
+  techDecisions: string[];
+  maintainability: string;
+}
+
 /* ===== 本地统计数据 ===== */
 
 export interface GitHubStats {
@@ -46,6 +81,7 @@ export interface GitHubStats {
   hasLongTermProjects: boolean;
   hasRecentActivity: boolean;
   techKeywords: string[];
+  orgs: GitHubOrg[];
 }
 
 /* ===== DeepSeek 配置（用户在前端填写） ===== */
@@ -100,6 +136,35 @@ export interface DeepSeekAnalysis {
   careerAdvice: CareerAdvice;
 }
 
+/* ===== 对话追问 ===== */
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/* ===== 历史趋势追踪 ===== */
+
+export interface SavedAnalysis {
+  id: string;
+  username: string;
+  timestamp: string;
+  avatarUrl: string;
+  name: string;
+  scores: AnalysisScores;
+}
+
+export interface TrendDataPoint {
+  date: string;
+  overall: number;
+  technicalDepth: number;
+  projectCompleteness: number;
+  openSourceInfluence: number;
+  activity: number;
+  technicalBreadth: number;
+  careerAttractiveness: number;
+}
+
 /* ===== API 请求/响应类型 ===== */
 
 export interface AnalyzeRequest {
@@ -112,9 +177,24 @@ export interface AnalyzeResponse {
   repositories: GitHubRepo[];
   stats: GitHubStats;
   analysis: DeepSeekAnalysis | null;
+  contributionData?: ContributionData | null;
   warning?: string;
 }
 
 export interface AnalyzeErrorResponse {
   error: string;
+}
+
+export interface RepoAnalyzeRequest {
+  username: string;
+  repo: GitHubRepo;
+  config?: DeepSeekConfig;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+  profile: GitHubUser;
+  stats: GitHubStats;
+  analysis: DeepSeekAnalysis;
+  config?: DeepSeekConfig;
 }
