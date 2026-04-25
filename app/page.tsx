@@ -1,19 +1,25 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import type { AnalyzeResponse } from "@/lib/types";
+import { useState, useCallback, useRef } from "react";
+import type { AnalyzeResponse, DeepSeekConfig } from "@/lib/types";
 import AnalysisForm from "@/components/AnalysisForm";
 import ProfileSummary from "@/components/ProfileSummary";
 import AnalysisResult from "@/components/AnalysisResult";
 import RepoList from "@/components/RepoList";
 import LoadingState from "@/components/LoadingState";
 import ErrorState from "@/components/ErrorState";
+import DeepSeekPanel from "@/components/DeepSeekPanel";
 
 export default function Home() {
   const [result, setResult] = useState<AnalyzeResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastInput, setLastInput] = useState<string>("");
+  const deepseekConfigRef = useRef<DeepSeekConfig | null>(null);
+
+  const handleConfigChange = useCallback((config: DeepSeekConfig) => {
+    deepseekConfigRef.current = config;
+  }, []);
 
   const handleAnalyze = useCallback(async (input: string) => {
     setLastInput(input);
@@ -22,10 +28,18 @@ export default function Home() {
     setResult(null);
 
     try {
+      const body: Record<string, unknown> = { input };
+
+      // 附带 DeepSeek 配置
+      const cfg = deepseekConfigRef.current;
+      if (cfg?.apiKey) {
+        body.config = cfg;
+      }
+
       const res = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ input }),
+        body: JSON.stringify(body),
       });
 
       const data = await res.json();
@@ -49,7 +63,6 @@ export default function Home() {
     }
   }, [lastInput, handleAnalyze]);
 
-  // 语言分布颜色
   const languageChartColors = [
     "bg-blue-500",
     "bg-green-500",
@@ -65,7 +78,7 @@ export default function Home() {
     <main className="min-h-screen bg-gray-950">
       <div className="max-w-5xl mx-auto px-4 py-10 md:py-16">
         {/* 标题 */}
-        <header className="text-center mb-10 md:mb-12">
+        <header className="text-center mb-8 md:mb-10">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
             GitHub 个人分析
           </h1>
@@ -73,6 +86,9 @@ export default function Home() {
             输入 GitHub 主页，AI 自动分析开发者画像、技术栈、项目质量与职业竞争力
           </p>
         </header>
+
+        {/* DeepSeek 配置面板 */}
+        <DeepSeekPanel onConfigChange={handleConfigChange} />
 
         {/* 搜索表单 */}
         <AnalysisForm onAnalyze={handleAnalyze} loading={loading} />
@@ -86,7 +102,6 @@ export default function Home() {
         {/* 分析结果 */}
         {result && (
           <>
-            {/* 用户简介 */}
             {result.profile && (
               <ProfileSummary profile={result.profile} stats={result.stats} />
             )}
@@ -94,15 +109,10 @@ export default function Home() {
             {/* 语言分布 */}
             {result.stats && result.stats.topLanguages.length > 0 && (
               <div className="bg-gray-900/80 border border-gray-800 rounded-2xl p-6 mb-6">
-                <h3 className="text-white font-semibold mb-4">
-                  语言分布
-                </h3>
+                <h3 className="text-white font-semibold mb-4">语言分布</h3>
                 <div className="space-y-3">
                   {result.stats.topLanguages.map((lang, i) => (
-                    <div
-                      key={lang.language}
-                      className="flex items-center gap-3"
-                    >
+                    <div key={lang.language} className="flex items-center gap-3">
                       <span className="text-sm text-gray-300 w-24 md:w-32 truncate flex-shrink-0">
                         {lang.language}
                       </span>

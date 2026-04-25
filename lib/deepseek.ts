@@ -1,20 +1,20 @@
-import { DeepSeekAnalysis, GitHubUser, GitHubRepo, GitHubStats } from "./types";
-
-const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com";
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY;
-
-/** 检查 DeepSeek 配置是否完整 */
-export function checkDeepSeekConfig(): void {
-  if (!DEEPSEEK_API_KEY) {
-    throw new Error("DEEPSEEK_API_KEY 未配置");
-  }
-}
+import {
+  DeepSeekAnalysis,
+  DeepSeekConfig,
+  GitHubUser,
+  GitHubRepo,
+  GitHubStats,
+} from "./types";
 
 /**
  * 构建 DeepSeek 分析 Prompt
  * 包含用户资料、仓库列表、统计信息，要求模型返回结构化 JSON
  */
-function buildPrompt(user: GitHubUser, repos: GitHubRepo[], stats: GitHubStats): string {
+function buildPrompt(
+  user: GitHubUser,
+  repos: GitHubRepo[],
+  stats: GitHubStats
+): string {
   const topReposInfo = stats.topRepos
     .map(
       (r, i) =>
@@ -23,7 +23,10 @@ function buildPrompt(user: GitHubUser, repos: GitHubRepo[], stats: GitHubStats):
     .join("\n");
 
   const recentReposInfo = stats.mostRecentRepos
-    .map((r, i) => `${i + 1}. ${r.full_name} | 最近推送: ${r.pushed_at} | Stars: ${r.stargazers_count}`)
+    .map(
+      (r, i) =>
+        `${i + 1}. ${r.full_name} | 最近推送: ${r.pushed_at} | Stars: ${r.stargazers_count}`
+    )
     .join("\n");
 
   const languagesInfo = stats.topLanguages
@@ -66,7 +69,7 @@ ${[...new Set(repos.map((r) => r.language).filter(Boolean))].join(", ") || "未�
 ${[...new Set(repos.flatMap((r) => r.topics))].join(", ") || "无"}
 
 ## Response Rules
-Return ONLY a valid JSON object. NO markdown, NO code blocks, NO explanation, NO extra text.
+You MUST return ONLY a valid JSON object — no markdown, no code blocks, no explanation.
 
 Required JSON structure:
 {
@@ -111,11 +114,9 @@ Required JSON structure:
 
 /** 尝试从 DeepSeek 响应文本中解析 JSON */
 function tryParseDeepSeekResponse(text: string): DeepSeekAnalysis | null {
-  // 直接解析
   try {
     return JSON.parse(text);
   } catch {
-    // 尝试从文本中提取 JSON 对象
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
@@ -129,14 +130,20 @@ function tryParseDeepSeekResponse(text: string): DeepSeekAnalysis | null {
 }
 
 /** 验证并补全 DeepSeek 返回的分析数据 */
-function validateAnalysis(data: Record<string, unknown>): DeepSeekAnalysis {
+function validateAnalysis(
+  data: Record<string, unknown>
+): DeepSeekAnalysis {
   const scores = data.scores as Record<string, unknown> | undefined;
   const techStack = data.techStack as Record<string, unknown> | undefined;
-  const careerAdvice = data.careerAdvice as Record<string, unknown> | undefined;
+  const careerAdvice = data.careerAdvice as
+    | Record<string, unknown>
+    | undefined;
 
   return {
     summary: typeof data.summary === "string" ? data.summary : "未能生成总结",
-    developerType: Array.isArray(data.developerType) ? data.developerType.map(String) : ["未分类"],
+    developerType: Array.isArray(data.developerType)
+      ? data.developerType.map(String)
+      : ["未分类"],
     scores: {
       overall: clampScore(scores?.overall),
       technicalDepth: clampScore(scores?.technicalDepth),
@@ -147,24 +154,43 @@ function validateAnalysis(data: Record<string, unknown>): DeepSeekAnalysis {
       careerAttractiveness: clampScore(scores?.careerAttractiveness),
     },
     techStack: {
-      primaryLanguages: Array.isArray(techStack?.primaryLanguages) ? techStack.primaryLanguages.map(String) : [],
-      frameworks: Array.isArray(techStack?.frameworks) ? techStack.frameworks.map(String) : [],
-      domains: Array.isArray(techStack?.domains) ? techStack.domains.map(String) : [],
+      primaryLanguages: Array.isArray(techStack?.primaryLanguages)
+        ? techStack.primaryLanguages.map(String)
+        : [],
+      frameworks: Array.isArray(techStack?.frameworks)
+        ? techStack.frameworks.map(String)
+        : [],
+      domains: Array.isArray(techStack?.domains)
+        ? techStack.domains.map(String)
+        : [],
     },
     strengths: Array.isArray(data.strengths) ? data.strengths.map(String) : [],
-    weaknesses: Array.isArray(data.weaknesses) ? data.weaknesses.map(String) : [],
+    weaknesses: Array.isArray(data.weaknesses)
+      ? data.weaknesses.map(String)
+      : [],
     representativeProjects: Array.isArray(data.representativeProjects)
       ? data.representativeProjects.map((p: unknown) => ({
           name: String((p as Record<string, unknown>).name || ""),
           reason: String((p as Record<string, unknown>).reason || ""),
         }))
       : [],
-    activityAnalysis: typeof data.activityAnalysis === "string" ? data.activityAnalysis : "无活跃度分析数据",
+    activityAnalysis:
+      typeof data.activityAnalysis === "string"
+        ? data.activityAnalysis
+        : "无活跃度分析数据",
     careerAdvice: {
-      suitableRoles: Array.isArray(careerAdvice?.suitableRoles) ? careerAdvice.suitableRoles.map(String) : [],
-      resumeTips: Array.isArray(careerAdvice?.resumeTips) ? careerAdvice.resumeTips.map(String) : [],
-      githubOptimizationTips: Array.isArray(careerAdvice?.githubOptimizationTips) ? careerAdvice.githubOptimizationTips.map(String) : [],
-      growthSuggestions: Array.isArray(careerAdvice?.growthSuggestions) ? careerAdvice.growthSuggestions.map(String) : [],
+      suitableRoles: Array.isArray(careerAdvice?.suitableRoles)
+        ? careerAdvice.suitableRoles.map(String)
+        : [],
+      resumeTips: Array.isArray(careerAdvice?.resumeTips)
+        ? careerAdvice.resumeTips.map(String)
+        : [],
+      githubOptimizationTips: Array.isArray(careerAdvice?.githubOptimizationTips)
+        ? careerAdvice.githubOptimizationTips.map(String)
+        : [],
+      growthSuggestions: Array.isArray(careerAdvice?.growthSuggestions)
+        ? careerAdvice.growthSuggestions.map(String)
+        : [],
     },
   };
 }
@@ -180,31 +206,50 @@ function clampScore(value: unknown, fallback = 50): number {
 export async function analyzeWithDeepSeek(
   user: GitHubUser,
   repos: GitHubRepo[],
-  stats: GitHubStats
+  stats: GitHubStats,
+  config: DeepSeekConfig
 ): Promise<DeepSeekAnalysis> {
-  checkDeepSeekConfig();
+  const { apiKey, model, baseUrl, thinkingEnabled, reasoningEffort } = config;
+
+  if (!apiKey) {
+    throw new Error("DeepSeek API Key 未配置");
+  }
 
   const prompt = buildPrompt(user, repos, stats);
 
-  const res = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+  // 构建请求体
+  const requestBody: Record<string, unknown> = {
+    model: model || "deepseek-v4-flash",
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a professional GitHub profile analyst. You MUST return ONLY valid JSON without any markdown formatting, code blocks, or explanation.",
+      },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 4096,
+  };
+
+  // 非 thinking 模式时使用 json_object 格式保证结构化输出
+  if (!thinkingEnabled) {
+    requestBody.response_format = { type: "json_object" };
+  } else {
+    // thinking 模式
+    requestBody.thinking = {
+      type: "enabled",
+      reasoning_effort: reasoningEffort || "high",
+    };
+  }
+
+  const res = await fetch(`${baseUrl || "https://api.deepseek.com"}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({
-      model: "deepseek-chat",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a professional GitHub profile analyst. You MUST return ONLY valid JSON without any markdown formatting, code blocks, or explanation.",
-        },
-        { role: "user", content: prompt },
-      ],
-      temperature: 0.3,
-      max_tokens: 4096,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!res.ok) {

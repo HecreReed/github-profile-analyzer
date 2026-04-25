@@ -48,6 +48,16 @@ export interface GitHubStats {
   techKeywords: string[];
 }
 
+/* ===== DeepSeek 配置（用户在前端填写） ===== */
+
+export interface DeepSeekConfig {
+  apiKey: string;
+  model: string;
+  baseUrl: string;
+  thinkingEnabled: boolean;
+  reasoningEffort: "high" | "max";
+}
+
 /* ===== DeepSeek AI 分析类型 ===== */
 
 export interface AnalysisScores {
@@ -94,6 +104,7 @@ export interface DeepSeekAnalysis {
 
 export interface AnalyzeRequest {
   input: string;
+  config?: DeepSeekConfig;
 }
 
 export interface AnalyzeResponse {

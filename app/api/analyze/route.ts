@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseUsername, fetchGitHubUser, fetchGitHubRepos, computeStats } from "@/lib/github";
-import { analyzeWithDeepSeek, checkDeepSeekConfig } from "@/lib/deepseek";
+import {
+  parseUsername,
+  fetchGitHubUser,
+  fetchGitHubRepos,
+  computeStats,
+} from "@/lib/github";
+import { analyzeWithDeepSeek } from "@/lib/deepseek";
+import type { DeepSeekConfig } from "@/lib/types";
 
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
-    let body: { input?: string };
+    let body: { input?: string; config?: DeepSeekConfig };
     try {
       body = await request.json();
     } catch {
       return NextResponse.json({ error: "请求体必须是有效的 JSON" }, { status: 400 });
     }
 
-    const { input } = body;
+    const { input, config } = body;
 
     if (!input || typeof input !== "string") {
       return NextResponse.json(
@@ -44,29 +50,30 @@ export async function POST(request: NextRequest) {
     // 3. 计算本地统计
     const stats = computeStats(user, repos);
 
-    // 4. 检查 DeepSeek 配置
-    let deepSeekAvailable = true;
-    try {
-      checkDeepSeekConfig();
-    } catch {
-      deepSeekAvailable = false;
-    }
+    // 4. 优先使用前端传入的 API Key，其次使用环境变量
+    const apiKey = config?.apiKey || process.env.DEEPSEEK_API_KEY || "";
 
-    if (!deepSeekAvailable) {
+    if (!apiKey) {
       return NextResponse.json({
         profile: user,
         repositories: repos,
         stats,
         analysis: null,
         warning:
-          "DeepSeek API 未配置，AI 分析功能不可用。请在 .env.local 中设置 DEEPSEEK_API_KEY",
+          "DeepSeek API Key 未配置。请在页面下方的「API 配置」中填入 Key，或在 .env.local 中设置 DEEPSEEK_API_KEY",
       });
     }
 
     // 5. DeepSeek AI 分析
     let analysis;
     try {
-      analysis = await analyzeWithDeepSeek(user, repos, stats);
+      analysis = await analyzeWithDeepSeek(user, repos, stats, {
+        apiKey,
+        model: config?.model || "deepseek-v4-flash",
+        baseUrl: config?.baseUrl || process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+        thinkingEnabled: config?.thinkingEnabled ?? false,
+        reasoningEffort: config?.reasoningEffort || "high",
+      });
     } catch (e) {
       const message = e instanceof Error ? e.message : "DeepSeek API 请求失败";
       return NextResponse.json({
